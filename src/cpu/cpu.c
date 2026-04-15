@@ -48,128 +48,65 @@ static struct Instruction decode(uint8_t instruction) {
 	return decodematrix[hi*16 + lo];
 }
 
-// TODO write helper function for address resolution
+static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
+	switch(addrmode) {
+	case IMME:
+		return cpu->pc++;
+	case ZPAG: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(0x0000, addrlo);
+	}
+	case ABSO: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(addrhi, addrlo);
+	}
+	default:
+		return 0;
+	}
+}
+
 static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	switch(instr.opcode) {
 	case LDA:
-		switch(instr.addrmode) {
-		case IMME:
-			cpu->ac = busread(cpu->bus, cpu->pc++);
-			setflagz(cpu, cpu->ac);
-			setflagn(cpu, cpu->ac);
-		break;
-		case ZPAG: {
-			uint8_t addr_lo = busread(cpu->bus, cpu->pc++);
-			cpu->ac = busread(cpu->bus, BYTESTOWORD(0x0000, addr_lo));
-			setflagz(cpu, cpu->ac);
-			setflagn(cpu, cpu->ac);
-		}
-		break;
-		case ABSO: {
-			uint8_t addr_lo = busread(cpu->bus, cpu->pc++);
-			uint8_t addr_hi = busread(cpu->bus, cpu->pc++);
-			cpu->ac = busread(cpu->bus, BYTESTOWORD(addr_hi, addr_lo));
-			setflagz(cpu, cpu->ac);
-			setflagn(cpu, cpu->ac);
-		}
-		break;
-		default:
-		break;
-		}
+		cpu->ac = busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
 	break;
 	case LDX:
-		switch(instr.addrmode) {
-		case IMME:
-			cpu->x = busread(cpu->bus, cpu->pc++);
-			setflagz(cpu, cpu->x);
-			setflagn(cpu, cpu->x);
-		break;
-		default:
-		break;
-		}
+		cpu->x = busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
 	break;
 	case LDY:
-		switch(instr.addrmode) {
-		case IMME:
-			cpu->y = busread(cpu->bus, cpu->pc++);
-			setflagz(cpu, cpu->y);
-			setflagn(cpu, cpu->y);
-		break;
-		default:
-		break;
-		}
+		cpu->y = busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
 	break;
 	case STA:
-		switch(instr.addrmode) {
-		case ZPAG: {
-			uint8_t addr_lo = busread(cpu->bus, cpu->pc++);
-			buswrite(cpu->bus, BYTESTOWORD(0x0000, addr_lo), cpu->ac);
-		}
-		break;
-		case ABSO: {
-			uint8_t addr_lo = busread(cpu->bus, cpu->pc++);
-			uint8_t addr_hi = busread(cpu->bus, cpu->pc++);
-			buswrite(cpu->bus, BYTESTOWORD(addr_hi, addr_lo), cpu->ac);
-		}
-		break;
-		default:
-		break;
-		}
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->ac);
 	break;
 	case TAX:
-		switch(instr.addrmode) {
-		case IMPL:
-			cpu->x = cpu->ac;
-			setflagz(cpu, cpu->x);
-			setflagn(cpu, cpu->x);
-		break;
-		default:
-		break;
-		}
+		cpu->x = cpu->ac;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
 	break;
 	case INX:
-		switch(instr.addrmode) {
-		case IMPL:
-			++cpu->x;
-			setflagz(cpu, cpu->x);
-			setflagn(cpu, cpu->x);
-		break;
-		default:
-		break;
-		}
+		++cpu->x;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
 	break;
 	case BRK:
-		switch(instr.addrmode) {
-		case IMPL:
-			FLAGON(FLAGB, cpu->sr);
-		break;
-		default:
-		break;
-		}
+		FLAGON(FLAGB, cpu->sr);
 	break;
 	case JMP:
-		switch(instr.addrmode) {
-		case ABSO: {
-			uint8_t addr_lo = busread(cpu->bus, cpu->pc++);
-			uint8_t addr_hi = busread(cpu->bus, cpu->pc++);
-			cpu->pc = BYTESTOWORD(addr_hi, addr_lo);
-		}
-		break;
-		default:
-		break;
-		}
+		cpu->pc = resaddr(cpu, instr.addrmode);
 	break;
 	case NOP:
-		switch(instr.addrmode) {
-		case IMPL:
-			/*
-			 * other instructions: "I'm doing my part!"
-			 * this one: "I DIDN'T DO FUCKIN' SHIT"
-			 */
-		break;
-		default:
-		break;
-		}
+		/*
+		 * other instructions: "I'm doing my part!"
+		 * this one: "I DIDN'T DO FUCKIN' SHIT"
+		 */
 	break;
 	default:
 	break;
