@@ -168,6 +168,71 @@ int main(void) {
 		++failed;
 	}
 
+	printf("\n---------------- TEST 6 ----------------\n\n");
+
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0x10); buswrite(&bus, addr++, 0xFC);
+	buswrite(&bus, addr++, 0xA2); buswrite(&bus, addr++, 0x01);
+	buswrite(&bus, addr++, 0x00);
+	addr = 0xFC10;
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x42);
+	buswrite(&bus, addr++, 0x60);
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) {
+		cpustep(&cpu);
+	}
+
+	printf("A: 0x%X\nX: 0x%X\n", cpu.ac, cpu.x);
+
+	if(cpu.ac == 0x42 && cpu.x == 0x01) {
+		printf("\nTEST 6 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 6 FAILED\n");
+		++failed;
+	}
+
+	printf("\n---------------- TEST 7 ----------------\n\n");
+
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	// main: calls outer subroutine at 0xFC10
+	buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0x10); buswrite(&bus, addr++, 0xFC);
+	buswrite(&bus, addr++, 0xA2); buswrite(&bus, addr++, 0x01); // LDX #$01 — runs after return
+	buswrite(&bus, addr++, 0x00); // BRK
+
+	// outer subroutine at 0xFC10: calls inner subroutine at 0xFC20
+	addr = 0xFC10;
+	buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0xFC);
+	buswrite(&bus, addr++, 0x60); // RTS back to main
+
+	// inner subroutine at 0xFC20: just loads a value and returns
+	addr = 0xFC20;
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x42); // LDA #$42
+	buswrite(&bus, addr++, 0x60); // RTS back to outer
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) {
+		cpustep(&cpu);
+	}
+
+	printf("A: 0x%X\nX: 0x%X\n", cpu.ac, cpu.x);
+
+	if(cpu.ac == 0x42 && cpu.x == 0x01) {
+		printf("\nTEST 7 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 7 FAILED\n");
+		++failed;
+	}
+
 	printf("\n---------------- TESTS DONE ----------------\n");
 	printf("passed: %d, failed: %d\n\n", passed, failed);
 

@@ -126,6 +126,19 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	case PLP:
 		cpu->sr = stackpull(cpu);
 	break;
+	case JSR: {
+		uint16_t pushpc = cpu->pc+1;
+		stackpush(cpu, pushpc>>8);
+		stackpush(cpu, pushpc&0x00FF);
+		cpu->pc = resaddr(cpu, instr.addrmode);
+	}
+	break;
+	case RTS: {
+		uint8_t pclo = stackpull(cpu);
+		uint8_t pchi = stackpull(cpu);
+		cpu->pc = BYTESTOWORD(pchi, pclo) + 1;
+	}
+	break;
 	case NOP:
 		/*
 		 * other instructions: "I'm doing my part!"
