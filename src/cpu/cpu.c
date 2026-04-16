@@ -61,6 +61,10 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
 		return BYTESTOWORD(addrhi, addrlo);
 	}
+	case RELA: {
+		int8_t offset = busread(cpu->bus, cpu->pc++);
+		return cpu->pc + offset;
+	}
 	default:
 		return 0;
 	}
@@ -106,6 +110,11 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		setflagz(cpu, cpu->x);
 		setflagn(cpu, cpu->x);
 	break;
+	case DEX:
+		--cpu->x;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
+	break;
 	case BRK:
 		FLAGON(FLAGB, cpu->sr);
 	break;
@@ -138,6 +147,30 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		uint8_t pchi = stackpull(cpu);
 		cpu->pc = BYTESTOWORD(pchi, pclo) + 1;
 	}
+	break;
+	case BCC:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BCS:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BEQ:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BNE:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BMI:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BPL:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BVC:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+	break;
+	case BVS:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 1, resaddr(cpu, instr.addrmode), cpu->pc);
 	break;
 	case NOP:
 		/*

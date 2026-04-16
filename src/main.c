@@ -203,20 +203,17 @@ int main(void) {
 	cpu.pc = 0xFC00;
 	addr = cpu.pc;
 
-	// main: calls outer subroutine at 0xFC10
 	buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0x10); buswrite(&bus, addr++, 0xFC);
-	buswrite(&bus, addr++, 0xA2); buswrite(&bus, addr++, 0x01); // LDX #$01 — runs after return
-	buswrite(&bus, addr++, 0x00); // BRK
+	buswrite(&bus, addr++, 0xA2); buswrite(&bus, addr++, 0x01);
+	buswrite(&bus, addr++, 0x00);
 
-	// outer subroutine at 0xFC10: calls inner subroutine at 0xFC20
 	addr = 0xFC10;
 	buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0x20); buswrite(&bus, addr++, 0xFC);
-	buswrite(&bus, addr++, 0x60); // RTS back to main
+	buswrite(&bus, addr++, 0x60);
 
-	// inner subroutine at 0xFC20: just loads a value and returns
 	addr = 0xFC20;
-	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x42); // LDA #$42
-	buswrite(&bus, addr++, 0x60); // RTS back to outer
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x42);
+	buswrite(&bus, addr++, 0x60);
 
 	while(FLAGREAD(FLAGB, cpu.sr) != 1) {
 		cpustep(&cpu);
@@ -230,6 +227,33 @@ int main(void) {
 	}
 	else {
 		printf("\nTEST 7 FAILED\n");
+		++failed;
+	}
+
+	printf("\n---------------- TEST 8 ----------------\n\n");
+
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0xA2); buswrite(&bus, addr++, 0x05);
+	buswrite(&bus, addr++, 0xCA);
+	buswrite(&bus, addr++, 0xD0); buswrite(&bus, addr++, 0xFD);
+	buswrite(&bus, addr++, 0x00);
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) {
+		cpustep(&cpu);
+	}
+
+	printf("X: %d\nZ flag: %d\n", cpu.x, FLAGREAD(FLAGZ, cpu.sr));
+
+	if(cpu.x == 0 && FLAGREAD(FLAGZ, cpu.sr) == 1) {
+		printf("\nTEST 8 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 8 FAILED\n");
 		++failed;
 	}
 
