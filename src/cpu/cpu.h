@@ -4,8 +4,9 @@
 #include "../bus/bus.h"
 #include <string.h>
 
+#define RESETVEC 0xFFFC
+
 // default register values
-#define DEFLPC 0xFFFC
 #define DEFLSP 0xFD
 #define DEFLSR 0x24
 

@@ -114,7 +114,7 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 }
 
 void cpuinit(struct CPU6502* cpu, struct Bus* bus) {
-	cpu->pc = DEFLPC;
+	cpu->pc = BYTESTOWORD(busread(bus, RESETVEC+0x0001), busread(bus, RESETVEC));
 	cpu->sp = DEFLSP;
 	cpu->sr = DEFLSR;
 	cpu->ac = 0;
