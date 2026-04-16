@@ -66,6 +66,16 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 	}
 }
 
+static void stackpush(struct CPU6502* cpu, uint8_t val) {
+	buswrite(cpu->bus, BYTESTOWORD(0x01, cpu->sp), val);
+	--cpu->sp;
+}
+
+static uint8_t stackpull(struct CPU6502* cpu) {
+	++cpu->sp;
+	return busread(cpu->bus, BYTESTOWORD(0x01, cpu->sp));
+}
+
 static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	switch(instr.opcode) {
 	case LDA:
@@ -101,6 +111,20 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	break;
 	case JMP:
 		cpu->pc = resaddr(cpu, instr.addrmode);
+	break;
+	case PHA:
+		stackpush(cpu, cpu->ac);
+	break;
+	case PLA:
+		cpu->ac = stackpull(cpu);
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case PHP:
+		stackpush(cpu, cpu->sr);
+	break;
+	case PLP:
+		cpu->sr = stackpull(cpu);
 	break;
 	case NOP:
 		/*

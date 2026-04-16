@@ -7,7 +7,7 @@
 #define RESETVEC 0xFFFC
 
 // default register values
-#define DEFLSP 0xFD
+#define DEFLSP 0xFF
 #define DEFLSR 0x24
 
 // status register (p register) flags
