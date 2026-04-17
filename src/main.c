@@ -257,6 +257,107 @@ int main(void) {
 		++failed;
 	}
 
+	printf("\n---------------- TEST 9 ----------------\n\n");
+
+	// ADC: carry flag test — 0xFF + 0x01 = 0x100, result truncates to 0x00, carry set
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0xFF); // LDA #$FF
+	buswrite(&bus, addr++, 0x69); buswrite(&bus, addr++, 0x01); // ADC #$01
+	buswrite(&bus, addr++, 0x00);                               // BRK
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) cpustep(&cpu);
+
+	printf("A: 0x%X\nC flag: %d\nZ flag: %d\n", cpu.ac, FLAGREAD(FLAGC, cpu.sr), FLAGREAD(FLAGZ, cpu.sr));
+
+	if(cpu.ac == 0x00 && FLAGREAD(FLAGC, cpu.sr) == 1 && FLAGREAD(FLAGZ, cpu.sr) == 1) {
+		printf("\nTEST 9 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 9 FAILED\n");
+		++failed;
+	}
+
+	printf("\n---------------- TEST 10 ----------------\n\n");
+
+	// ADC: overflow flag test — 0x50 + 0x50 = 0xA0, two positives produce a negative
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x50); // LDA #$50
+	buswrite(&bus, addr++, 0x69); buswrite(&bus, addr++, 0x50); // ADC #$50
+	buswrite(&bus, addr++, 0x00);                               // BRK
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) cpustep(&cpu);
+
+	printf("A: 0x%X\nV flag: %d\nN flag: %d\n", cpu.ac, FLAGREAD(FLAGV, cpu.sr), FLAGREAD(FLAGN, cpu.sr));
+
+	if(cpu.ac == 0xA0 && FLAGREAD(FLAGV, cpu.sr) == 1 && FLAGREAD(FLAGN, cpu.sr) == 1) {
+		printf("\nTEST 10 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 10 FAILED\n");
+		++failed;
+	}
+
+	printf("\n---------------- TEST 11 ----------------\n\n");
+
+	// SBC: basic subtraction — 0x10 - 0x01 = 0x0F, carry set (no borrow), no overflow
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0x38);                               // SEC (set carry — required before SBC)
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x10); // LDA #$10
+	buswrite(&bus, addr++, 0xE9); buswrite(&bus, addr++, 0x01); // SBC #$01
+	buswrite(&bus, addr++, 0x00);                               // BRK
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) cpustep(&cpu);
+
+	printf("A: 0x%X\nC flag: %d\nV flag: %d\n", cpu.ac, FLAGREAD(FLAGC, cpu.sr), FLAGREAD(FLAGV, cpu.sr));
+
+	if(cpu.ac == 0x0F && FLAGREAD(FLAGC, cpu.sr) == 1 && FLAGREAD(FLAGV, cpu.sr) == 0) {
+		printf("\nTEST 11 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 11 FAILED\n");
+		++failed;
+	}
+
+	printf("\n---------------- TEST 12 ----------------\n\n");
+
+	// CMP: A >= operand sets carry, A == operand also sets zero
+	businit(&bus);
+	cpuinit(&cpu, &bus);
+	cpu.pc = 0xFC00;
+	addr = cpu.pc;
+
+	buswrite(&bus, addr++, 0xA9); buswrite(&bus, addr++, 0x42); // LDA #$42
+	buswrite(&bus, addr++, 0xC9); buswrite(&bus, addr++, 0x42); // CMP #$42
+	buswrite(&bus, addr++, 0x00);                               // BRK
+
+	while(FLAGREAD(FLAGB, cpu.sr) != 1) cpustep(&cpu);
+
+	printf("A: 0x%X\nC flag: %d\nZ flag: %d\n", cpu.ac, FLAGREAD(FLAGC, cpu.sr), FLAGREAD(FLAGZ, cpu.sr));
+
+	if(cpu.ac == 0x42 && FLAGREAD(FLAGC, cpu.sr) == 1 && FLAGREAD(FLAGZ, cpu.sr) == 1) {
+		printf("\nTEST 12 PASSED\n");
+		++passed;
+	}
+	else {
+		printf("\nTEST 12 FAILED\n");
+		++failed;
+	}
+
 	printf("\n---------------- TESTS DONE ----------------\n");
 	printf("passed: %d, failed: %d\n\n", passed, failed);
 

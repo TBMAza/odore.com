@@ -35,51 +35,74 @@ static void setflagz(struct CPU6502* cpu, uint8_t res) {
 		FLAGOFF(FLAGZ, cpu->sr);
 	}
 }
-
 static uint8_t fetch(struct CPU6502* cpu) {
 	uint8_t instruction = busread(cpu->bus, cpu->pc);
 	++cpu->pc;
 	return instruction;
 }
-
 static struct Instruction decode(uint8_t instruction) {
 	uint8_t hi = instruction>>4;
 	uint8_t lo = instruction&0x0F;
 	return decodematrix[hi*16 + lo];
 }
-
 static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 	switch(addrmode) {
-	case IMME:
-		return cpu->pc++;
-	case ZPAG: {
-		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
-		return BYTESTOWORD(0x0000, addrlo);
-	}
+	case ACCU:
+		return 0;
 	case ABSO: {
 		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
 		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
 		return BYTESTOWORD(addrhi, addrlo);
 	}
+	case IMME:
+		return cpu->pc++;
+	case IMPL:
+		return 0;
 	case RELA: {
 		int8_t offset = busread(cpu->bus, cpu->pc++);
 		return cpu->pc + offset;
+	}
+	case ZPAG: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(0x0000, addrlo);
 	}
 	default:
 		return 0;
 	}
 }
-
 static void stackpush(struct CPU6502* cpu, uint8_t val) {
 	buswrite(cpu->bus, BYTESTOWORD(0x01, cpu->sp), val);
 	--cpu->sp;
 }
-
 static uint8_t stackpull(struct CPU6502* cpu) {
 	++cpu->sp;
 	return busread(cpu->bus, BYTESTOWORD(0x01, cpu->sp));
 }
-
+static void cmpinstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t reg) {
+	uint8_t diff = reg - busread(cpu->bus, resaddr(cpu, addrmode));
+	setflagz(cpu, diff);
+	setflagn(cpu, diff);
+	(FLAGREAD(FLAGZ, cpu->sr) && FLAGREAD(FLAGN, cpu->sr)) ? FLAGOFF(FLAGC, cpu->sr) : FLAGON(FLAGC, cpu->sr);
+}
+static void suminstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t issub) {
+	uint8_t operand = busread(cpu->bus, resaddr(cpu, addrmode));
+	if(issub) {
+		operand = ~operand;
+	}
+	uint8_t res = cpu->ac + operand + FLAGREAD(FLAGC, cpu->sr);
+	
+	if( (cpu->ac & 0x80) == (operand & 0x80) && (operand & 0x80) != (res & 0x80) ) {
+		FLAGON(FLAGV, cpu->sr);
+	}
+	else {
+		FLAGOFF(FLAGV, cpu->sr);
+	}
+	( ( (cpu->ac & 0x80) || (operand & 0x80) ) && !(res & 0x80) ) ? FLAGON(FLAGC, cpu->sr) : FLAGOFF(FLAGC, cpu->sr);
+	
+	cpu->ac = res;
+	setflagz(cpu, cpu->ac);
+	setflagn(cpu, cpu->ac);
+}
 static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	switch(instr.opcode) {
 	case LDA:
@@ -105,6 +128,21 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		setflagz(cpu, cpu->x);
 		setflagn(cpu, cpu->x);
 	break;
+	case TXA:
+		cpu->ac = cpu->x;
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case TAY:
+		cpu->y = cpu->ac;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case TYA:
+		cpu->ac = cpu->y;
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
 	case INX:
 		++cpu->x;
 		setflagz(cpu, cpu->x);
@@ -114,6 +152,46 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		--cpu->x;
 		setflagz(cpu, cpu->x);
 		setflagn(cpu, cpu->x);
+	break;
+	case INY:
+		++cpu->y;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case DEY:
+		--cpu->y;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case AND:
+		cpu->ac &= busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case ORA:
+		cpu->ac |= busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case EOR:
+		cpu->ac ^= busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case CMP:
+		cmpinstr(cpu, instr.addrmode, cpu->ac);
+	break;
+	case CPX:
+		cmpinstr(cpu, instr.addrmode, cpu->x);
+	break;
+	case CPY:
+		cmpinstr(cpu, instr.addrmode, cpu->y);
+	break;
+	case ADC:
+		suminstr(cpu, instr.addrmode, 0);
+	break;
+	case SBC:
+		suminstr(cpu, instr.addrmode, 1);
 	break;
 	case BRK:
 		FLAGON(FLAGB, cpu->sr);
@@ -149,28 +227,31 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	}
 	break;
 	case BCC:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BCS:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BEQ:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BNE:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BMI:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BPL:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BVC:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BVS:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 1, resaddr(cpu, instr.addrmode), cpu->pc);
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case SEC:
+		FLAGON(FLAGC, cpu->sr);
 	break;
 	case NOP:
 		/*
