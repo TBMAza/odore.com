@@ -70,6 +70,16 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		return cpu->pc++;
 	case IMPL:
 		return 0;
+	case INDI: {
+		uint8_t ptraddrlo = busread(cpu->bus, cpu->pc++);
+		uint8_t ptraddrhi = busread(cpu->bus, cpu->pc++);
+		uint16_t pointer = BYTESTOWORD(ptraddrhi, ptraddrlo);
+		return BYTESTOWORD(busread(cpu->bus, pointer+1), busread(cpu->bus, pointer));
+	}
+	case INDX: {
+		uint16_t pointer = BYTESTOWORD(0x00, busread(cpu->bus, cpu->pc++));
+		return BYTESTOWORD(busread(cpu->bus, pointer + cpu->x + 1), busread(cpu->bus, pointer + cpu->x));
+	}
 	case INDY: {
 		uint16_t pointer = BYTESTOWORD(0x00, busread(cpu->bus, cpu->pc++));
 		return BYTESTOWORD(busread(cpu->bus, pointer+1), busread(cpu->bus, pointer)) + cpu->y;
@@ -82,6 +92,14 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 	case ZPAG: {
 		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
 		return BYTESTOWORD(0x0000, addrlo);
+	}
+	case ZPAX: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(0x0000, addrlo) + (uint16_t)cpu->x;
+	}
+	case ZPAY: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(0x0000, addrlo) + (uint16_t)cpu->y;
 	}
 	default:
 		printf("[ERR] Unknown address mode: %d\n", addrmode);
@@ -294,6 +312,12 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	break;
 	case CLD:
 		FLAGOFF(FLAGD, cpu->sr);
+	break;
+	case CLC:
+		FLAGOFF(FLAGC, cpu->sr);
+	break;
+	case CLI:
+		FLAGOFF(FLAGI, cpu->sr);
 	break;
 	case ROL:
 		if(instr.addrmode == ACCU) {

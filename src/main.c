@@ -9,8 +9,8 @@ int main(void) {
 
 	businit(&bus);
 	busload(&bus, "../roms/kernal.rom", 0xE000);
-	//busload(&bus, "../roms/charset.rom", 0xD000);
-	//busload(&bus, "../roms/basic.rom", 0xA000);
+	busload(&bus, "../roms/charset.rom", 0xD000);
+	busload(&bus, "../roms/basic.rom", 0xA000);
 	cpuinit(&cpu, &bus);
 	
 	for(uint16_t i = 0;; ++i) {
