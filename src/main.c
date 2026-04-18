@@ -12,10 +12,10 @@ int main(void) {
 	cpuinit(&cpu, &bus);
 	printf("initial pc value: 0x%X\n\n", cpu.pc);
 
-	for(int i = 0; i < 100; ++i) {
+	for(int i = 0; i < 8192; ++i) {
 		printf("0x%X: 0x%X\n", cpu.pc, busread(&bus, cpu.pc));
 		cpustep(&cpu);
-		sleep(1);
+		usleep(250);
 	}
 
 	return 0;

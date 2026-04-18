@@ -56,6 +56,16 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
 		return BYTESTOWORD(addrhi, addrlo);
 	}
+	case ABSX: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(addrhi, addrlo) + (uint16_t)cpu->x;
+	}
+	case ABSY: {
+		uint8_t addrlo = busread(cpu->bus, cpu->pc++);
+		uint8_t addrhi = busread(cpu->bus, cpu->pc++);
+		return BYTESTOWORD(addrhi, addrlo) + (uint16_t)cpu->y;
+	}
 	case IMME:
 		return cpu->pc++;
 	case IMPL:
@@ -127,6 +137,20 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	case STA:
 		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->ac);
 	break;
+	case STX:
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->x);
+	break;
+	case STY:
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->y);
+	break;
+	case INC: {
+		uint16_t addr = resaddr(cpu, instr.addrmode);
+		uint8_t val = busread(cpu->bus, addr);
+		buswrite(cpu->bus, addr, val+1);
+		setflagz(cpu, val+1);
+		setflagn(cpu, val+1);
+	}
+	break;
 	case TAX:
 		cpu->x = cpu->ac;
 		setflagz(cpu, cpu->x);
@@ -136,6 +160,9 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		cpu->ac = cpu->x;
 		setflagz(cpu, cpu->ac);
 		setflagn(cpu, cpu->ac);
+	break;
+	case TXS:
+		cpu->sp = cpu->x;
 	break;
 	case TAY:
 		cpu->y = cpu->ac;
@@ -256,6 +283,12 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	break;
 	case SEC:
 		FLAGON(FLAGC, cpu->sr);
+	break;
+	case SEI:
+		FLAGON(FLAGI, cpu->sr);
+	break;
+	case CLD:
+		FLAGOFF(FLAGD, cpu->sr);
 	break;
 	case NOP:
 		/*
