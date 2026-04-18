@@ -69,7 +69,7 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		return BYTESTOWORD(0x0000, addrlo);
 	}
 	default:
-		printf("[ERR] Unknown instruction: %d\n", addrmode);
+		printf("[ERR] Unknown address mode: %d\n", addrmode);
 		exit(1);
 		//return 0;
 	}
