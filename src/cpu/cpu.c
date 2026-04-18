@@ -1,4 +1,6 @@
 #include "cpu.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 const struct Instruction decodematrix[16*16] = {
 	{BRK,IMPL},{ORA,INDX},{OP_,ADM_},{OP_,ADM_},{OP_,ADM_},{ORA,ZPAG},{ASL,ZPAG},{OP_,ADM_},{PHP,IMPL},{ORA,IMME},{ASL,ACCU},{OP_,ADM_},{OP_,ADM_},{ORA,ABSO},{ASL,ABSO},{OP_,ADM_},
@@ -67,7 +69,9 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		return BYTESTOWORD(0x0000, addrlo);
 	}
 	default:
-		return 0;
+		printf("[ERR] Unknown instruction: %d\n", addrmode);
+		exit(1);
+		//return 0;
 	}
 }
 static void stackpush(struct CPU6502* cpu, uint8_t val) {
@@ -260,6 +264,8 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		 */
 	break;
 	default:
+		printf("[ERR] Unknown instruction: %d\n", instr.opcode);
+		exit(1);
 	break;
 	}
 }

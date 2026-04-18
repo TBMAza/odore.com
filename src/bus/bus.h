@@ -12,5 +12,6 @@ struct Bus {
 void businit(struct Bus* bus); // bussin' it frfr
 uint8_t busread(const struct Bus* bus, uint16_t addr);
 void buswrite(struct Bus* bus, uint16_t addr, uint8_t val);
+void busload(struct Bus* bus, const char* path, uint16_t writestartaddr); // the amount of self-control I needed not to name this `bustaload` is unimaginable
 
 #endif
