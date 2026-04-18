@@ -9,13 +9,13 @@ int main(void) {
 
 	businit(&bus);
 	busload(&bus, "../roms/kernal.rom", 0xE000);
+	//busload(&bus, "../roms/charset.rom", 0xD000);
+	//busload(&bus, "../roms/basic.rom", 0xA000);
 	cpuinit(&cpu, &bus);
-	printf("initial pc value: 0x%X\n\n", cpu.pc);
-
-	for(int i = 0; i < 8192; ++i) {
+	
+	for(uint16_t i = 0;; ++i) {
 		printf("0x%X: 0x%X\n", cpu.pc, busread(&bus, cpu.pc));
 		cpustep(&cpu);
-		usleep(250);
 	}
 
 	return 0;

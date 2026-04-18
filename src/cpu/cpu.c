@@ -70,6 +70,11 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		return cpu->pc++;
 	case IMPL:
 		return 0;
+	case INDY: {
+		uint16_t pointer = BYTESTOWORD(0x00, busread(cpu->bus, cpu->pc++));
+		return BYTESTOWORD(busread(cpu->bus, pointer+1), busread(cpu->bus, pointer)) + cpu->y;
+	}
+	break;
 	case RELA: {
 		int8_t offset = busread(cpu->bus, cpu->pc++);
 		return cpu->pc + offset;
@@ -289,6 +294,25 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	break;
 	case CLD:
 		FLAGOFF(FLAGD, cpu->sr);
+	break;
+	case ROL:
+		if(instr.addrmode == ACCU) {
+			uint8_t carry = cpu->ac & 0x80 ? 1 : 0;
+			cpu->ac = (cpu->ac<<1) + carry;
+			carry ? FLAGON(FLAGC, cpu->sr) : FLAGOFF(FLAGC, cpu->sr);
+			setflagz(cpu, cpu->ac);
+			setflagn(cpu, cpu->ac);
+		}
+		else {
+			uint16_t addr = resaddr(cpu, instr.addrmode);
+			uint8_t val = busread(cpu->bus, addr);
+			uint8_t carry = val & 0x80 ? 1 : 0;
+			val = (val<<1) + carry;
+			buswrite(cpu->bus, addr, val);
+			carry ? FLAGON(FLAGC, cpu->sr) : FLAGOFF(FLAGC, cpu->sr);
+			setflagz(cpu, val);
+			setflagn(cpu, val);
+		}
 	break;
 	case NOP:
 		/*
