@@ -102,7 +102,7 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 		return BYTESTOWORD(0x0000, addrlo) + (uint16_t)cpu->y;
 	}
 	default:
-		printf("[ERR] Unknown address mode: %d\n", addrmode);
+		printf("[ERR] Invalid addressing mode\n");
 		exit(1);
 		//return 0;
 	}
@@ -142,6 +142,140 @@ static void suminstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t issub)
 }
 static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	switch(instr.opcode) {
+	case ADC:
+		suminstr(cpu, instr.addrmode, 0);
+	break;
+	case AND:
+		cpu->ac &= busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case ASL:
+		if(instr.addrmode) {
+			cpu->ac <<= 1;
+			setflagz(cpu, cpu->ac);
+			setflagn(cpu, cpu->ac);
+		}
+		else {
+			uint16_t addr = resaddr(cpu, instr.addrmode);
+			uint8_t val = busread(cpu->bus, addr);
+			val <<= 1;
+			buswrite(cpu->bus, addr, val);
+			setflagz(cpu, val);
+			setflagn(cpu, val);
+		}
+	break;
+	case BCC:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BCS:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BEQ:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BIT: {
+		uint8_t val = busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		cpu->ac & val ? FLAGON(FLAGZ, cpu->sr) : FLAGOFF(FLAGZ, cpu->sr);
+		val & 0x80 ? FLAGON(FLAGN, cpu->sr) : FLAGOFF(FLAGN, cpu->sr);
+		val & 0x40 ? FLAGON(FLAGV, cpu->sr) : FLAGOFF(FLAGV, cpu->sr);
+	}
+	break;
+	case BMI:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BNE:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BPL:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BRK:
+		FLAGON(FLAGB, cpu->sr);
+		stackpush(cpu, (uint8_t)((cpu->pc+1)>>8));
+		stackpush(cpu, (uint8_t)((cpu->pc+1)&0x00FF));
+		stackpush(cpu, cpu->sr);
+	break;
+	case BVC:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case BVS:
+		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
+	break;
+	case CLC:
+		FLAGOFF(FLAGC, cpu->sr);
+	break;
+	case CLD:
+		FLAGOFF(FLAGD, cpu->sr);
+	break;
+	case CLI:
+		FLAGOFF(FLAGI, cpu->sr);
+	break;
+	case CLV:
+		FLAGOFF(FLAGV, cpu->sr);
+	break;
+	case CMP:
+		cmpinstr(cpu, instr.addrmode, cpu->ac);
+	break;
+	case CPX:
+		cmpinstr(cpu, instr.addrmode, cpu->x);
+	break;
+	case CPY:
+		cmpinstr(cpu, instr.addrmode, cpu->y);
+	break;
+	case DEC: {
+		uint16_t addr = resaddr(cpu, instr.addrmode);
+		uint8_t val = busread(cpu->bus, addr);
+		--val;
+		buswrite(cpu->bus, addr, val);
+		setflagz(cpu, val);
+		setflagn(cpu, val);
+	}
+	break;
+	case DEX:
+		--cpu->x;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
+	break;
+	case DEY:
+		--cpu->y;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case EOR:
+		cpu->ac ^= busread(cpu->bus, resaddr(cpu, instr.addrmode));
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case INC: {
+		uint16_t addr = resaddr(cpu, instr.addrmode);
+		uint8_t val = busread(cpu->bus, addr);
+		val += 1;
+		buswrite(cpu->bus, addr, val);
+		setflagz(cpu, val);
+		setflagn(cpu, val);
+	}
+	break;
+	case INX:
+		++cpu->x;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
+	break;
+	case INY:
+		++cpu->y;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case JMP:
+		cpu->pc = resaddr(cpu, instr.addrmode);
+	break;
+	case JSR: {
+		uint16_t pushpc = cpu->pc+1;
+		stackpush(cpu, pushpc>>8);
+		stackpush(cpu, pushpc&0x00FF);
+		cpu->pc = resaddr(cpu, instr.addrmode);
+	}
+	break;
 	case LDA:
 		cpu->ac = busread(cpu->bus, resaddr(cpu, instr.addrmode));
 		setflagz(cpu, cpu->ac);
@@ -157,167 +291,45 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		setflagz(cpu, cpu->y);
 		setflagn(cpu, cpu->y);
 	break;
-	case STA:
-		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->ac);
+	case LSR:
+		if(instr.addrmode) {
+			cpu->ac >>= 1;
+			setflagz(cpu, cpu->ac);
+			setflagn(cpu, cpu->ac);
+		}
+		else {
+			uint16_t addr = resaddr(cpu, instr.addrmode);
+			uint8_t val = busread(cpu->bus, addr);
+			val >>= 1;
+			buswrite(cpu->bus, addr, val);
+			setflagz(cpu, val);
+			setflagn(cpu, val);
+		}
 	break;
-	case STX:
-		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->x);
-	break;
-	case STY:
-		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->y);
-	break;
-	case INC: {
-		uint16_t addr = resaddr(cpu, instr.addrmode);
-		uint8_t val = busread(cpu->bus, addr);
-		buswrite(cpu->bus, addr, val+1);
-		setflagz(cpu, val+1);
-		setflagn(cpu, val+1);
-	}
-	break;
-	case TAX:
-		cpu->x = cpu->ac;
-		setflagz(cpu, cpu->x);
-		setflagn(cpu, cpu->x);
-	break;
-	case TXA:
-		cpu->ac = cpu->x;
-		setflagz(cpu, cpu->ac);
-		setflagn(cpu, cpu->ac);
-	break;
-	case TXS:
-		cpu->sp = cpu->x;
-	break;
-	case TAY:
-		cpu->y = cpu->ac;
-		setflagz(cpu, cpu->y);
-		setflagn(cpu, cpu->y);
-	break;
-	case TYA:
-		cpu->ac = cpu->y;
-		setflagz(cpu, cpu->ac);
-		setflagn(cpu, cpu->ac);
-	break;
-	case INX:
-		++cpu->x;
-		setflagz(cpu, cpu->x);
-		setflagn(cpu, cpu->x);
-	break;
-	case DEX:
-		--cpu->x;
-		setflagz(cpu, cpu->x);
-		setflagn(cpu, cpu->x);
-	break;
-	case INY:
-		++cpu->y;
-		setflagz(cpu, cpu->y);
-		setflagn(cpu, cpu->y);
-	break;
-	case DEY:
-		--cpu->y;
-		setflagz(cpu, cpu->y);
-		setflagn(cpu, cpu->y);
-	break;
-	case AND:
-		cpu->ac &= busread(cpu->bus, resaddr(cpu, instr.addrmode));
-		setflagz(cpu, cpu->ac);
-		setflagn(cpu, cpu->ac);
+	case NOP:
+		/*
+		 * other instructions: "I'm doing my part!"
+		 * this one: "I DIDN'T DO FUCKIN' SHIT"
+		 */
 	break;
 	case ORA:
 		cpu->ac |= busread(cpu->bus, resaddr(cpu, instr.addrmode));
 		setflagz(cpu, cpu->ac);
 		setflagn(cpu, cpu->ac);
 	break;
-	case EOR:
-		cpu->ac ^= busread(cpu->bus, resaddr(cpu, instr.addrmode));
-		setflagz(cpu, cpu->ac);
-		setflagn(cpu, cpu->ac);
-	break;
-	case CMP:
-		cmpinstr(cpu, instr.addrmode, cpu->ac);
-	break;
-	case CPX:
-		cmpinstr(cpu, instr.addrmode, cpu->x);
-	break;
-	case CPY:
-		cmpinstr(cpu, instr.addrmode, cpu->y);
-	break;
-	case ADC:
-		suminstr(cpu, instr.addrmode, 0);
-	break;
-	case SBC:
-		suminstr(cpu, instr.addrmode, 1);
-	break;
-	case BRK:
-		FLAGON(FLAGB, cpu->sr);
-	break;
-	case JMP:
-		cpu->pc = resaddr(cpu, instr.addrmode);
-	break;
 	case PHA:
 		stackpush(cpu, cpu->ac);
+	break;
+	case PHP:
+		stackpush(cpu, cpu->sr);
 	break;
 	case PLA:
 		cpu->ac = stackpull(cpu);
 		setflagz(cpu, cpu->ac);
 		setflagn(cpu, cpu->ac);
 	break;
-	case PHP:
-		stackpush(cpu, cpu->sr);
-	break;
 	case PLP:
 		cpu->sr = stackpull(cpu);
-	break;
-	case JSR: {
-		uint16_t pushpc = cpu->pc+1;
-		stackpush(cpu, pushpc>>8);
-		stackpush(cpu, pushpc&0x00FF);
-		cpu->pc = resaddr(cpu, instr.addrmode);
-	}
-	break;
-	case RTS: {
-		uint8_t pclo = stackpull(cpu);
-		uint8_t pchi = stackpull(cpu);
-		cpu->pc = BYTESTOWORD(pchi, pclo) + 1;
-	}
-	break;
-	case BCC:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BCS:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGC, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BEQ:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BNE:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGZ, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BMI:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BPL:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BVC:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case BVS:
-		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 1, resaddr(cpu, instr.addrmode), cpu->pc+1);
-	break;
-	case SEC:
-		FLAGON(FLAGC, cpu->sr);
-	break;
-	case SEI:
-		FLAGON(FLAGI, cpu->sr);
-	break;
-	case CLD:
-		FLAGOFF(FLAGD, cpu->sr);
-	break;
-	case CLC:
-		FLAGOFF(FLAGC, cpu->sr);
-	break;
-	case CLI:
-		FLAGOFF(FLAGI, cpu->sr);
 	break;
 	case ROL:
 		if(instr.addrmode == ACCU) {
@@ -338,11 +350,85 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 			setflagn(cpu, val);
 		}
 	break;
-	case NOP:
-		/*
-		 * other instructions: "I'm doing my part!"
-		 * this one: "I DIDN'T DO FUCKIN' SHIT"
-		 */
+	case ROR:
+		if(instr.addrmode == ACCU) {
+			uint8_t carry = cpu->ac & 0x01;
+			cpu->ac = (cpu->ac>>1) + (carry<<7);
+			carry ? FLAGON(FLAGC, cpu->sr) : FLAGOFF(FLAGC, cpu->sr);
+			setflagz(cpu, cpu->ac);
+			setflagn(cpu, cpu->ac);
+		}
+		else {
+			uint16_t addr = resaddr(cpu, instr.addrmode);
+			uint8_t val = busread(cpu->bus, addr);
+			uint8_t carry = val & 0x01;
+			val = (val<<1) + (carry<<7);
+			buswrite(cpu->bus, addr, val);
+			carry ? FLAGON(FLAGC, cpu->sr) : FLAGOFF(FLAGC, cpu->sr);
+			setflagz(cpu, val);
+			setflagn(cpu, val);
+		}
+	break;
+	case RTI:
+		cpu->sr = stackpull(cpu);
+		uint8_t pclo = stackpull(cpu);
+		uint8_t pchi = stackpull(cpu);
+		cpu->pc = BYTESTOWORD(pchi, pclo);
+	break;
+	case RTS: {
+		uint8_t pclo = stackpull(cpu);
+		uint8_t pchi = stackpull(cpu);
+		cpu->pc = BYTESTOWORD(pchi, pclo) + 1;
+	}
+	break;
+	case SBC:
+		suminstr(cpu, instr.addrmode, 1);
+	break;
+	case SEC:
+		FLAGON(FLAGC, cpu->sr);
+	break;
+	case SED:
+		FLAGON(FLAGD, cpu->sr);
+	break;
+	case SEI:
+		FLAGON(FLAGI, cpu->sr);
+	break;
+	case STA:
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->ac);
+	break;
+	case STX:
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->x);
+	break;
+	case STY:
+		buswrite(cpu->bus, resaddr(cpu, instr.addrmode), cpu->y);
+	break;
+	case TAX:
+		cpu->x = cpu->ac;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
+	break;
+	case TAY:
+		cpu->y = cpu->ac;
+		setflagz(cpu, cpu->y);
+		setflagn(cpu, cpu->y);
+	break;
+	case TSX:
+		cpu->x = cpu->sp;
+		setflagz(cpu, cpu->x);
+		setflagn(cpu, cpu->x);
+	break;
+	case TXA:
+		cpu->ac = cpu->x;
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
+	break;
+	case TXS:
+		cpu->sp = cpu->x;
+	break;
+	case TYA:
+		cpu->ac = cpu->y;
+		setflagz(cpu, cpu->ac);
+		setflagn(cpu, cpu->ac);
 	break;
 	default:
 		printf("[ERR] Unknown instruction: %d\n", instr.opcode);
