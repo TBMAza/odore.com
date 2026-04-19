@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "bus/bus.h"
 #include "cpu/cpu.h"
 

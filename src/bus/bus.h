@@ -4,9 +4,29 @@
 #include <stdint.h>
 
 #define ADDRSPACE 65536
+#define ROM8K 8192
+#define ROM4K 4096
+
+#define CPUIOPORT 0x0001
+#define ALLVISIBLE 0x37
+#define BASICV 0
+#define KERNALV 1
+#define IOV 2
+
+#define BASICRANGEL 0xA000
+#define BASICRANGEU 0xBFFF
+#define KERNALRANGEL 0xE000
+#define KERNALRANGEU 0xFFFF
+#define IORANGEL 0xD000
+#define IORANGEU 0xDFFF
+
+#define ADDRINRANGE(addr, lower, upper) ( (addr) >= (lower) && (addr) <= (upper) )
 
 struct Bus {
-	uint8_t mem[ADDRSPACE];	
+	uint8_t ram[ADDRSPACE];
+	uint8_t romkernal[ROM8K];
+	uint8_t rombasic[ROM8K];
+	uint8_t romio[ROM4K];
 };
 
 void businit(struct Bus* bus); // bussin' it frfr
