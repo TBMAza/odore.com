@@ -8,7 +8,7 @@
 #define ROM4K 4096
 
 #define CPUIOPORT 0x0001
-#define ALLVISIBLE 0x37
+#define ALLVISIBLE 0x00 //37
 #define BASICV 0
 #define KERNALV 1
 #define IOV 2
@@ -26,7 +26,7 @@ struct Bus {
 	uint8_t ram[ADDRSPACE];
 	uint8_t romkernal[ROM8K];
 	uint8_t rombasic[ROM8K];
-	uint8_t romio[ROM4K];
+	uint8_t romchar[ROM4K];
 };
 
 void businit(struct Bus* bus); // bussin' it frfr

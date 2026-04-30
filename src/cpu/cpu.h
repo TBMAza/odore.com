@@ -4,7 +4,9 @@
 #include "../bus/bus.h"
 #include <string.h>
 
-#define RESETVEC 0xFFFC
+#define VECRESET 0xFFFC
+#define VECIRQ 0xFFFE
+#define VECNMI 0xFFFA
 
 // default register values
 #define DEFLSP 0xFF
@@ -45,7 +47,16 @@ enum Addrmode {
 	INDI,INDX,INDY,RELA,ZPAG,ZPAX,ZPAY
 };
 
+enum InterruptType {
+	INTNMI,
+	INTIRQ,
+	INTBRK
+};
+
 struct CPU6502 {
+	uint8_t irq;
+	uint8_t nmi;
+
 	uint16_t pc;
 	uint8_t ac; // aka A register
 	uint8_t x;
@@ -55,6 +66,7 @@ struct CPU6502 {
 
 	struct Bus* bus;
 };
+
 struct Instruction {
 	enum Opcode opcode;
 	enum Addrmode addrmode;
@@ -62,5 +74,6 @@ struct Instruction {
 
 void cpuinit(struct CPU6502* cpu, struct Bus* bus);
 void cpustep(struct CPU6502* cpu);
+void cpuinterrupt(struct CPU6502* cpu, enum InterruptType interrupttype);
 
 #endif

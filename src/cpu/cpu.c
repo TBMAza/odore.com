@@ -1,6 +1,7 @@
 #include "cpu.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 const struct Instruction decodematrix[16*16] = {
 	{BRK,IMPL},{ORA,INDX},{OP_,ADM_},{OP_,ADM_},{OP_,ADM_},{ORA,ZPAG},{ASL,ZPAG},{OP_,ADM_},{PHP,IMPL},{ORA,IMME},{ASL,ACCU},{OP_,ADM_},{OP_,ADM_},{ORA,ABSO},{ASL,ABSO},{OP_,ADM_},
@@ -104,7 +105,6 @@ static uint16_t resaddr(struct CPU6502* cpu, enum Addrmode addrmode) {
 	default:
 		printf("[ERR] Invalid addressing mode\n");
 		exit(1);
-		//return 0;
 	}
 }
 static void stackpush(struct CPU6502* cpu, uint8_t val) {
@@ -121,7 +121,7 @@ static void cmpinstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t reg) {
 	setflagn(cpu, diff);
 	(FLAGREAD(FLAGZ, cpu->sr) && FLAGREAD(FLAGN, cpu->sr)) ? FLAGOFF(FLAGC, cpu->sr) : FLAGON(FLAGC, cpu->sr);
 }
-static void suminstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t issub) {
+static void suminstr(struct CPU6502* cpu, enum Addrmode addrmode, bool issub) {
 	uint8_t operand = busread(cpu->bus, resaddr(cpu, addrmode));
 	if(issub) {
 		operand = ~operand;
@@ -140,10 +140,28 @@ static void suminstr(struct CPU6502* cpu, enum Addrmode addrmode, uint8_t issub)
 	setflagz(cpu, cpu->ac);
 	setflagn(cpu, cpu->ac);
 }
+static void handle_interrupt(struct CPU6502* cpu, enum InterruptType interrupttype, uint16_t pcoffset, uint16_t interruptvec) {
+	switch(interrupttype) {
+	case INTBRK:
+		FLAGON(FLAGB, cpu->sr);
+	break;
+	case INTNMI:
+	case INTIRQ:
+		FLAGOFF(FLAGB, cpu->sr);
+	break;
+	}
+	FLAGON(FLAGI, cpu->sr);
+	stackpush(cpu, (uint8_t)((cpu->pc + pcoffset)>>8));
+	stackpush(cpu, (uint8_t)((cpu->pc + pcoffset)&0x00FF));
+	stackpush(cpu, cpu->sr);
+	uint8_t pclo = busread(cpu->bus, interruptvec);
+	uint8_t pchi = busread(cpu->bus, interruptvec+1);
+	cpu->pc = BYTESTOWORD(pchi, pclo);
+}
 static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	switch(instr.opcode) {
 	case ADC:
-		suminstr(cpu, instr.addrmode, 0);
+		suminstr(cpu, instr.addrmode, false);
 	break;
 	case AND:
 		cpu->ac &= busread(cpu->bus, resaddr(cpu, instr.addrmode));
@@ -191,10 +209,7 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 		cpu->pc = BRANCHIF(cpu->sr, FLAGN, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
 	break;
 	case BRK:
-		FLAGON(FLAGB, cpu->sr);
-		stackpush(cpu, (uint8_t)((cpu->pc+1)>>8));
-		stackpush(cpu, (uint8_t)((cpu->pc+1)&0x00FF));
-		stackpush(cpu, cpu->sr);
+		handle_interrupt(cpu, INTBRK, 1, VECIRQ);
 	break;
 	case BVC:
 		cpu->pc = BRANCHIF(cpu->sr, FLAGV, 0, resaddr(cpu, instr.addrmode), cpu->pc+1);
@@ -382,7 +397,7 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 	}
 	break;
 	case SBC:
-		suminstr(cpu, instr.addrmode, 1);
+		suminstr(cpu, instr.addrmode, true);
 	break;
 	case SEC:
 		FLAGON(FLAGC, cpu->sr);
@@ -438,7 +453,7 @@ static void execute(struct CPU6502* cpu, struct Instruction instr) {
 }
 
 void cpuinit(struct CPU6502* cpu, struct Bus* bus) {
-	cpu->pc = BYTESTOWORD(busread(bus, RESETVEC+0x0001), busread(bus, RESETVEC));
+	cpu->pc = BYTESTOWORD(busread(bus, VECRESET+1), busread(bus, VECRESET));
 	cpu->sp = DEFLSP;
 	cpu->sr = DEFLSR;
 	cpu->ac = 0;
@@ -447,7 +462,27 @@ void cpuinit(struct CPU6502* cpu, struct Bus* bus) {
 	cpu->bus = bus;
 }
 void cpustep(struct CPU6502* cpu) {
+	if(cpu->nmi) {
+		handle_interrupt(cpu, INTNMI, 0, VECNMI);
+		cpu->nmi = 0;
+	}
+	else if(cpu->irq && !FLAGREAD(FLAGI, cpu->sr)) {
+		handle_interrupt(cpu, INTIRQ, 0, VECIRQ);
+		cpu->irq = 0;
+	}
 	uint8_t byte = fetch(cpu);
 	struct Instruction instr = decode(byte);
 	execute(cpu, instr);
+}
+void cpuinterrupt(struct CPU6502* cpu, enum InterruptType interrupttype) {
+	switch(interrupttype) {
+	case INTNMI:
+		cpu->nmi = 1;
+	break;
+	case INTIRQ:
+		cpu->irq = 1;
+	break;
+	default:
+	break;
+	}
 }
