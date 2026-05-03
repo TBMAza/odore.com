@@ -3,43 +3,21 @@
 
 #include <stdint.h>
 
-enum Envphase {
-   IDLE,
-   ATTACK,
-   DECAY,
-   SUSTAIN,
-   RELEASE 
+#define SAMPLERATE 44100
+
+#define PHASEMAX 16777216
+#define WAVEMAX 4095
+
+struct Oscillator {
+    uint32_t phaseacc; // wrap at 24 bits (16,777,216 -> 0)
+    uint32_t frequency;
+    uint32_t threshold;
+    uint16_t (*waveform)(uint32_t, uint32_t);
 };
 
-struct Voice {
-    enum Envphase envphase;
-
-    uint32_t phaseacc;
-
-    uint8_t freqlo;
-    uint8_t freqhi;
-    uint8_t pwlo;
-    uint8_t pwhi;
-    uint8_t control;
-    uint8_t atkdec;
-    uint8_t susrel;
-
-    uint8_t envlevel;
-};
-
-struct SID {
-    struct Voice voice[3];
-    
-    uint32_t sample_rate;
-
-    uint8_t cutofflo;
-    uint8_t cutoffhi;
-    uint8_t filterctrl;
-    uint8_t volume;
-
-    uint8_t readonly[4];
-};
-
-void sidwrite(struct SID* sid, uint8_t reg, uint8_t val);
+uint16_t sawtooth(uint32_t phase, uint32_t _unused);
+uint16_t triangle(uint32_t phase, uint32_t _unused);
+uint16_t square(uint32_t phase, uint32_t threshold);
+void sample(struct Oscillator* osc, uint16_t* buffer, int samples);
 
 #endif

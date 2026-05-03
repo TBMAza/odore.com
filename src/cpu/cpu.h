@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include "../c64utils/c64utils.h"
 #include "../bus/bus.h"
 #include <string.h>
 
@@ -21,13 +22,6 @@
 #define FLAGI 2
 #define FLAGZ 1
 #define FLAGC 0
-
-#define FLAGREAD(flag, bitmap) ( (bitmap)>>(flag) & 1 )
-#define FLAGON(flag, bitmap) ( (bitmap) |= 1<<(flag) )
-#define FLAGOFF(flag, bitmap) ( (bitmap) &= ~(1<<(flag)) )
-#define FLAGTOG(flag, bitmap) ( (bitmap) ^= 1<<(flag) )
-
-#define BYTESTOWORD(hi, lo) ( (uint16_t)lo + (((uint16_t)hi)<<8) )
 
 #define BRANCHIF(bitmap, flag, val, addr, defl) ( FLAGREAD((flag), (bitmap)) == (val) ? (addr) : (defl) ) // branch if in `bitmap` the `flag` equals `val` to location `addr`, otherwise to `defl` default location
 

@@ -2,6 +2,7 @@
 #define BUS_H
 
 #include <stdint.h>
+#include "../c64utils/c64utils.h"
 
 #define ADDRSPACE 65536
 #define ROM8K 8192
@@ -19,8 +20,6 @@
 #define KERNALRANGEU 0xFFFF
 #define IORANGEL 0xD000
 #define IORANGEU 0xDFFF
-
-#define ADDRINRANGE(addr, lower, upper) ( (addr) >= (lower) && (addr) <= (upper) )
 
 struct Bus {
 	uint8_t ram[ADDRSPACE];
