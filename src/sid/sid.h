@@ -3,10 +3,14 @@
 
 #include <stdint.h>
 
+#define CLOCK 1000000
+
 #define SAMPLERATE 44100
 
 #define PHASEMAX 16777216
 #define WAVEMAX 4095
+
+#define CYCLESPERSAMPLE (CLOCK/SAMPLERATE)
 
 enum Envphase {
     IDLE,
@@ -19,15 +23,15 @@ enum Envphase {
 struct Envelope {
     enum Envphase envphase;
     uint8_t envvolume;
-    uint8_t divider;
+    uint32_t divider;
     
     uint8_t gate;
     uint8_t oldgate;
 
-    uint8_t attackrate;
-    uint8_t decayrate;
-    uint8_t sustainvolume;
-    uint8_t releaserate;
+    uint8_t attackrate; // wrap at 4 bits (16 -> 0)
+    uint8_t decayrate; // wrap at 4 bits (16 -> 0)
+    uint8_t sustainvolume; // wrap at 4 bits (16 -> 0)
+    uint8_t releaserate; // wrap at 4 bits (16 -> 0)
 };
 
 struct Voice {
