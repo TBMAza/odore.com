@@ -3,20 +3,33 @@
 #include "sid/sid.h"
 
 void audio_callback(void *userdata, Uint8 *stream, int len) {
-    struct Oscillator* osc = (struct Oscillator*)userdata;
+    struct SID* sid = (struct SID*)userdata;
     uint16_t* buffer = (uint16_t*)stream;
     int samples = len / sizeof(uint16_t);
 
-    sample(osc, buffer, samples);
+    sample(sid, buffer, samples);
 }
 
 int main(void) {
+    // sid.voice[i].frequency = (hz * PHASEMAX) / SAMPLERATE; 
 
-    struct Oscillator osc;
-    osc.phaseacc = 0;
-    osc.frequency = 167392; // (440hz * PHASEMAX) / SAMPLERATE
-    osc.threshold = PHASEMAX/2;
-    osc.waveform = sawtooth;
+    struct SID sid;
+    sid.volume = 255;
+
+    sid.voice[0].phaseacc = 0;
+    sid.voice[0].frequency = 62772;
+    sid.voice[0].pulsewidth = PHASEMAX/4;
+    sid.voice[0].waveform = square;
+
+    sid.voice[1].phaseacc = 0;
+    sid.voice[1].frequency = 62772;
+    sid.voice[1].pulsewidth = PHASEMAX/4;
+    sid.voice[1].waveform = square;
+
+    sid.voice[2].phaseacc = 0;
+    sid.voice[2].frequency = 62772;
+    sid.voice[2].pulsewidth = PHASEMAX/4;
+    sid.voice[2].waveform = square;
 
     SDL_Init(SDL_INIT_AUDIO);
 
@@ -28,12 +41,12 @@ int main(void) {
     spec.channels = 1;
     spec.samples = 512;
     spec.callback = audio_callback;
-    spec.userdata = &osc;
+    spec.userdata = &sid;
 
     SDL_OpenAudio(&spec, NULL);
     SDL_PauseAudio(0);
 
-    SDL_Delay(1000); // 1000 = 1s
+    SDL_Delay(500); // 1000 = 1s
 
     SDL_CloseAudio();
     SDL_Quit();
